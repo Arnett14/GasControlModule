@@ -1,0 +1,30 @@
+//Pilot Valve
+#include "msp430fr2355.h"
+#include <driverlib.h>
+#include <msp430.h>
+
+void pilotvalve_init(void) {
+    WDTCTL = WDTPW | WDTHOLD;  // Stop the watchdog timer
+    PM5CTL0 &= ~LOCKLPM5;      // Disable high-impedance mode
+    P2DIR |= BIT5;             // Set P2.5 as output
+    P2OUT &= ~BIT5;            // Ensure valve starts OFF
+}
+
+void pilotvalve_on(void) {
+    P2OUT |= BIT5;             // Turn the valve ON
+}
+
+void pilotvalve_off(void) {
+    P2OUT &= ~BIT5;            // Turn the valve OFF
+}
+
+void main(void) {
+    pilotvalve_init();          // Initialize the valve
+
+    while (1) {
+        pilotvalve_on();        // Turn ON
+        _delay_cycles(300000); // Delay for 300 ms
+        pilotvalve_off();       // Turn OFF
+        _delay_cycles(300000); // Delay for 300 ms
+    }
+}
