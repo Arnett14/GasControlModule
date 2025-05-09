@@ -1,0 +1,39 @@
+//Thermistor
+#include <msp430.h>
+
+void configureADC();
+unsigned int readADC();
+
+int main()
+{
+    WDTCTL = WDTPW | WDTHOLD;  // Stop watchdog timer
+    configureADC();
+
+    while (1)
+    {
+        unsigned int adcValue = readADC();  // Read ADC value
+        __delay_cycles(100000);  // Simple delay
+    }
+}
+
+void configureADC()
+{
+    P1SEL0 |= BIT4;  // Set P1.4 as ADC input
+    P1SEL1 |= BIT4;
+
+    // Configure ADC12
+    ADCCTL0 = ADCSHT_2 | ADCON;  // Sample-and-hold time, ADC on
+    ADCCTL1 = ADCSHP;  // Sampling timer
+    ADCCTL2 = ADCRES_2;  // 12-bit resolution
+    ADCMCTL0 = ADCINCH_4;  // Select channel A4 (P1.4)
+
+    ADCCTL0 |= ADCENC;  // Enable ADC conversion
+}
+
+unsigned int readADC()
+{
+    ADCCTL0 |= ADCSC;  // Start sampling/conversion
+    while (ADCCTL1 & ADCBUSY);  // Wait for conversion to finish
+    return ADCMEM0;  // Return ADC result
+}
+
