@@ -1,0 +1,250 @@
+#include <msp430.h>
+#include <driverlib.h>
+#include "msp430fr2355.h"  
+
+// System States
+#define IDLE    0
+#define HEATING 1
+
+volatile int state = IDLE;
+
+
+void initRGB_LED(void);
+void changeRGBLED(char RED, char GREEN, char Blue);
+
+void ignitor_init(void);
+void ignitor_on(void);
+void ignitor_off(void);
+
+void pilotvalve_init(void);
+void pilotvalve_on(void);
+void pilotvalve_off(void);
+
+void initServo(void);
+void setServoPosition(unsigned int position);
+
+unsigned int readPotentiometer(void);
+unsigned int readThermistor(void);
+unsigned int readThermocouple(void);
+void updateStateBasedOnPot(void);
+
+
+// Main 
+
+int main(void)
+{
+    // Stop watchdog timer and disable default high-impedance mode.
+    WDTCTL = WDTPW | WDTHOLD;
+    PM5CTL0 &= ~LOCKLPM5;
+    
+    // Initialize all modules:
+    initRGB_LED();       // RGB LED on P6.0, P6.1, P6.2 (Timer TB3)
+    ignitor_init();      // Ignitor on P2.0
+    pilotvalve_init();   // Pilot valve on P2.5
+    initServo();         // Servo (Main Valve) on P5.0
+
+    while (1)
+    {
+        // Update system state based on the potentiometer reading (P1.5).
+        updateStateBasedOnPot();
+        
+        // Read temperature sensors (thermistor on P1.4 and thermocouple on P1.3)
+        
+        unsigned int thermistorVal  = readThermistor();
+        unsigned int thermocoupleVal = readThermocouple();
+
+        if (state == HEATING)
+        {
+            
+            // Set RGB LED to RED (red=255, green=0, blue=0)
+            changeRGBLED(255, 0, 0);
+
+            // Pulse the ignitor.
+            ignitor_on();
+            __delay_cycles(50000);
+            ignitor_off();
+
+           s.
+            pilotvalve_on();
+            __delay_cycles(300000);
+            pilotvalve_off();
+            __delay_cycles(300000);
+
+            // Open the main valve (servo) by setting position ~4000.
+            setServoPosition(4000);
+        }
+        else
+        {
+            // --- IDLE Mode ---
+            // Set RGB LED to GREEN (red=0, green=255, blue=0).
+            changeRGBLED(0, 255, 0);
+
+            // Ensure ignitor and pilot valve remain off.
+            ignitor_off();
+            pilotvalve_off();
+
+            // Close the main valve (servo) by setting position ~1500.
+            setServoPosition(1500);
+
+            __delay_cycles(50000);
+        }
+        
+        
+    }
+
+    return 0;
+}
+
+/
+// RGB LED Module (P6.0, P6.1, P6.2 using Timer TB3)
+
+void initRGB_LED(void)
+{
+    // Configure P6.0, P6.1, and P6.2 for output and timer functionality.
+    P6DIR |= BIT0 | BIT1 | BIT2;
+    P6SEL0 |= BIT0 | BIT1 | BIT2;
+    
+    // Configure Timer TB3 for PWM on three channels.
+    TB3CCR0 = 1000 - 1;           // PWM period (adjust as needed)
+    
+    TB3CCTL1 = OUTMOD_7;          // Channel 1: Blue LED (Reset/Set mode)
+    TB3CCR1 = 750;                // Initial duty cycle for Blue
+    
+    TB3CCTL2 = OUTMOD_7;          // Channel 2: Green LED (Reset/Set mode)
+    TB3CCR2 = 250;                // Initial duty cycle for Green
+    
+    TB3CCTL3 = OUTMOD_7;          // Channel 3: Red LED (Reset/Set mode)
+    TB3CCR3 = 100;                // Initial duty cycle for Red
+    
+    TB3CTL = TBSSEL__SMCLK | MC__UP | TBCLR;  // SMCLK, up mode, clear timer
+}
+
+
+void changeRGBLED(char RED, char GREEN, char Blue)
+{
+    TB3CCR1 = Blue << 2;
+    TB3CCR2 = GREEN << 2;
+    TB3CCR3 = RED << 2;
+}
+
+
+// Ignitor Module (P2.0)
+void ignitor_init(void)
+{
+    P2DIR |= BIT0;      // Set P2.0 as output.
+    P2OUT &= ~BIT0;     // Start with ignitor OFF.
+}
+
+void ignitor_on(void)
+{
+    P2OUT |= BIT0;
+}
+
+void ignitor_off(void)
+{
+    P2OUT &= ~BIT0;
+}
+
+
+// Pilot Valve Module (P2.5)
+
+void pilotvalve_init(void)
+{
+    P2DIR |= BIT5;      // Set P2.5 as output.
+    P2OUT &= ~BIT5;     // Start with pilot valve OFF.
+}
+
+void pilotvalve_on(void)
+{
+    P2OUT |= BIT5;
+}
+
+void pilotvalve_off(void)
+{
+    P2OUT &= ~BIT5;
+}
+
+
+// Servo (Main Valve) Module (P5.0 using Timer TB2 PWM)
+
+void initServo(void)
+{
+    // Configure P5.0 for Timer function.
+    P5DIR |= BIT0;
+    P5SEL0 |= BIT0;
+    P5SEL1 &= ~BIT0;
+    
+    // Setup Timer TB2 for a ~20ms PWM period.
+    TB2CCR0 = 20000 - 1;         // PWM period (~20ms)
+    TB2CCTL1 = OUTMOD_7;         // Channel 1: Reset/Set mode
+    TB2CCR1 = 1500;              // Start with neutral (closed) position (~1.5ms pulse)
+    TB2CTL = TBSSEL__SMCLK | MC__UP | TBCLR;   // SMCLK, up mode, clear timer
+}
+
+void setServoPosition(unsigned int position)
+{
+    TB2CCR1 = position;
+}
+
+
+// Read the potentiometer on P1.5 (10-bit ADC; channel A5)
+unsigned int readPotentiometer(void)
+{
+    // Configure P1.5 for ADC input.
+    P1SEL0 |= BIT5;
+    P1SEL1 |= BIT5;
+    
+    ADCCTL0 = ADCSHT_2 | ADCON;    // Set sample-and-hold time; turn ADC on
+    ADCCTL1 = ADCSHP;              // Use sampling timer
+    ADCCTL2 = ADCRES_1;            // 10-bit resolution
+    ADCMCTL0 = ADCINCH_5;          // Select channel A5 (P1.5)
+    ADCCTL0 |= ADCENC;             // Enable conversion
+
+    ADCCTL0 |= ADCSC;              // Start conversion
+    while (ADCCTL1 & ADCBUSY);     // Wait for conversion to complete
+    return ADCMEM0;                // Return ADC result
+}
+
+// Read the thermistor on P1.4 (12-bit ADC; channel A4)
+unsigned int readThermistor(void)
+{
+    P1SEL0 |= BIT4;
+    P1SEL1 |= BIT4;
+    
+    ADCCTL0 = ADCSHT_2 | ADCON;
+    ADCCTL1 = ADCSHP;
+    ADCCTL2 = ADCRES_2;           // 12-bit resolution
+    ADCMCTL0 = ADCINCH_4;         // Select channel A4 (P1.4)
+    ADCCTL0 |= ADCENC;
+    
+    ADCCTL0 |= ADCSC;
+    while (ADCCTL1 & ADCBUSY);
+    return ADCMEM0;
+}
+
+// Read the thermocouple on P1.3 (12-bit ADC; channel A3)
+unsigned int readThermocouple(void)
+{
+    P1SEL0 |= BIT3;
+    P1SEL1 |= BIT3;
+    
+    ADCCTL0 = ADCSHT_2 | ADCON;
+    ADCCTL1 = ADCSHP;
+    ADCCTL2 = ADCRES_2;           // 12-bit resolution
+    ADCMCTL0 = ADCINCH_3;         // Select channel A3 (P1.3)
+    ADCCTL0 |= ADCENC;
+    
+    ADCCTL0 |= ADCSC;
+    while (ADCCTL1 & ADCBUSY);
+    return ADCMEM0;
+}
+
+
+void updateStateBasedOnPot(void)
+{
+    unsigned int potValue = readPotentiometer();
+    if (potValue > 512)
+        state = HEATING;
+    else
+        state = IDLE;
+}
