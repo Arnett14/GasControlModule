@@ -1,0 +1,37 @@
+//Potentiometer
+#include <msp430.h>
+
+void configureADC();
+unsigned int readADC();
+
+int main(void)
+{
+    WDTCTL = WDTPW | WDTHOLD;  // Stop watchdog timer
+    configureADC();            // Configure ADC
+
+    while (1)
+    {
+        unsigned int adcValue = readADC(); // Read ADC value
+       
+        __delay_cycles(50000); // Delay for stability
+    }
+}
+
+void configureADC()
+{
+    P1SEL0 |= BIT5; // Set P1.5 as ADC input
+    P1SEL1 |= BIT5;
+
+    ADCCTL0 |= ADCSHT_2 | ADCON;      // Sample-and-hold time, ADC on
+    ADCCTL1 |= ADCSHP;                // Sampling timer
+    ADCCTL2 |= ADCRES;                // 10-bit resolution
+    ADCMCTL0 |= ADCINCH_5;            // Select channel A5 (P1.5)
+    ADCCTL0 |= ADCENC;                // Enable ADC
+}
+
+unsigned int readADC()
+{
+    ADCCTL0 |= ADCSC;          // Start conversion
+    while (ADCCTL1 & ADCBUSY); // Wait for conversion to complete
+    return ADCMEM0;            // Return ADC result
+}
