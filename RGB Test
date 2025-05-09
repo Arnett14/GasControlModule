@@ -1,0 +1,55 @@
+
+
+#include "intrinsics.h"
+
+#include <msp430.h>
+
+void changeRGBLED (char RED, char GREEN, char Blue);
+
+
+int main(void) {
+
+    WDTCTL = WDTPW | WDTHOLD;                 // Stop WDT
+
+    P6DIR |= BIT0 | BIT1 | BIT2;                     // P6.0, P6.1, and P6.2 output 
+    P6SEL0 |= BIT0 | BIT1 | BIT2;                    // P1.6 and P1.7 options select
+    
+    // Disable the GPIO power-on default high-impedance mode to activate
+    // previously configured port settings
+    PM5CTL0 &= ~LOCKLPM5;
+
+    TB3CCR0 = 1000-1;                         // PWM Period
+    TB3CCTL1 = OUTMOD_7;                      // CCR1 reset/set
+    TB3CCR1 = 750;                            // CCR1 PWM duty cycle
+    TB3CCTL2 = OUTMOD_7;                      // CCR2 reset/set
+    TB3CCR2 = 250;                            // CCR2 PWM duty cycle
+    TB3CCTL3 = OUTMOD_7;
+    TB3CCR3 = 100;
+    TB3CTL = TBSSEL__SMCLK | MC__UP | TBCLR;  // SMCLK, up mode, clear TBR
+    while(1) {
+        
+        
+        
+        
+// Turn on RED (P6.2)
+        changeRGBLED(255,0,0);
+        _delay_cycles(100000) ;   // Delay
+
+        // Turn on GREEN (P6.1)
+        changeRGBLED(0,255,0);
+       _delay_cycles(100000);    // Delay
+
+        // Turn on BLUE (P6.0)
+        changeRGBLED (0,0,255);
+        _delay_cycles(100000) ;   // Delay
+
+
+}
+}
+
+void changeRGBLED (char RED, char GREEN, char Blue){
+    TB3CCR1 = Blue << 2;
+    TB3CCR2 = GREEN << 2;
+    TB3CCR3 = RED << 2;
+}
+ 
