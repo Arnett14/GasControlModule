@@ -1,0 +1,57 @@
+//servo/mainvalve
+#include "intrinsics.h"
+
+#include <msp430.h>
+
+
+void initServo(); 
+void setServoPosition(unsigned int position); 
+
+
+
+int main(void)
+{
+    WDTCTL = WDTPW | WDTHOLD;                 // Stop watchdog timer
+
+    initServo(); 
+
+
+    while (1)
+    {
+         
+        setServoPosition(1500);               // 0° position
+        _delay_cycles(500000); 
+
+        setServoPosition(4000);               // 90° position
+        _delay_cycles(500000); 
+    }
+}
+
+
+
+void initServo() 
+{
+        // Configure P5.0 as output and select Timer function
+        P5DIR |= BIT0;
+        P5SEL0 |= BIT0;
+        P5SEL1 &= ~BIT0;
+
+        // Disable GPIO high-impedance mode
+        PM5CTL0 &= ~LOCKLPM5;
+
+        // Configure Timer1_B
+        TB2CCR0 = 20000 - 1;                       // PWM period (~20ms)
+        TB2CCTL1 = OUTMOD_7;                       // CCR1 reset/set mode
+        TB2CCR1 = 1500;                            // Default pulse width ~1.5ms (neutral)
+        TB2CTL = TBSSEL__SMCLK | MC__UP | TBCLR;   // SMCLK, Up mode, clear TBR
+}
+
+void setServoPosition(unsigned int position)
+{
+    // if (position < 1000)
+    //     position = 1000;
+    // else if (position > 2000)
+    //     position = 2000;
+
+    TB2CCR1 = position; 
+} 
