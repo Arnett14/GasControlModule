@@ -1,0 +1,40 @@
+
+//Ignitor Led
+#include "msp430fr2355.h"
+#include <driverlib.h>
+#include <msp430.h>
+#define IGNITOR
+void ignitor_init(void) {
+    // Set IGNITOR as output
+    P2DIR |= BIT0;
+
+    // Ensure the ignitor starts in the OFF state
+    P2OUT &= BIT0;
+    }
+
+void ignitor_on(void) {
+    // Turn the ignitor ON
+    P2OUT |= BIT0;
+}
+
+void ignitor_off(void) {
+    // Turn the ignitor OFF
+    P2OUT &= BIT0;
+}
+void main(void) {
+    WDTCTL = WDTPW | WDTHOLD; // Stop watchdog timer
+
+
+    // Initialize the ignitor
+    ignitor_init();
+
+    while (1) {
+         //Cycle between ON and OFF states
+        ignitor_on();
+        _delay_cycles(100000); // Delay 
+        ignitor_off();
+        _delay_cycles(100000); // Delay
+    }
+
+    return 0;
+}
